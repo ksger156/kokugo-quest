@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#ffffff">
+<title>国語クエスト</title>
+<style>
+:root{--bg:#f4f4f2;--card:#fff;--text:#171717;--muted:#707070;--line:#dedede;--good:#eaf7ef;--bad:#fff0f0;--accent:#171717}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;background:var(--bg);color:var(--text)}
+body{min-height:100dvh}
+button{font:inherit}
+.shell{max-width:560px;margin:auto;min-height:100dvh;background:white;padding:max(12px,env(safe-area-inset-top)) 16px max(14px,env(safe-area-inset-bottom))}
+.top{display:flex;justify-content:space-between;align-items:center;min-height:46px;gap:8px}
+.brand{font-weight:900;font-size:20px} .menuBtn{border:0;background:none;font-size:27px;padding:6px 8px}
+.homeTitle{font-size:30px;font-weight:900;margin:18px 0 6px} .sub{color:var(--muted);line-height:1.6}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:16px 0}
+.stat{background:#f6f6f3;border-radius:16px;padding:12px;text-align:center} .stat b{display:block;font-size:22px}
+.course{border:1px solid var(--line);border-radius:18px;padding:14px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.course.locked{opacity:.45} .course h3{margin:0 0 3px;font-size:17px} .course p{margin:0;color:var(--muted);font-size:13px}
+.trophy{font-size:30px} .go{border:0;border-radius:14px;background:#111;color:#fff;padding:11px 14px;font-weight:800}
+.quiz{min-height:calc(100dvh - 32px);display:grid;grid-template-rows:auto minmax(115px,auto) auto 138px auto;gap:10px}
+.progress{font-weight:800}
+.question{font-size:25px;line-height:1.45;font-weight:900;display:flex;align-items:center;padding:4px 0}
+.choices{display:grid;gap:9px}
+.choice{width:100%;min-height:56px;border:1.5px solid var(--line);border-radius:16px;background:#fff;padding:9px 12px;display:flex;align-items:center;gap:12px;text-align:left;font-size:18px}
+.letter{width:39px;height:39px;border:1.5px solid var(--line);border-radius:50%;display:grid;place-items:center;font-weight:900;flex:0 0 39px}
+.choice.correct{background:var(--good);border-color:#96c9a6} .choice.wrong{background:var(--bad);border-color:#e1a8a8} .choice:disabled{opacity:1;color:var(--text)}
+.explain{height:138px;border-top:1px solid #eee;padding-top:10px;overflow:auto;font-size:15px;line-height:1.58}
+.result{font-size:18px;font-weight:900;margin-bottom:4px} .small{font-size:13px;color:var(--muted)}
+.next{width:100%;min-height:54px;border:0;border-radius:16px;background:#111;color:#fff;font-weight:900;font-size:18px} .next:disabled{background:#e7e7e7;color:#999}
+.center{text-align:center;padding:28px 8px} .score{font-size:48px;font-weight:900;margin:10px 0} .bigTrophy{font-size:72px}
+.actionGrid{display:grid;gap:10px;margin-top:18px} .secondary{background:#fff;color:#111;border:1.5px solid #ccc}
+.sheet{position:fixed;inset:0;background:#0005;display:none;align-items:flex-end;z-index:20} .sheet.open{display:flex}
+.panel{width:min(560px,100%);margin:auto;background:#fff;border-radius:22px 22px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));max-height:80vh;overflow:auto}
+.panel h3{margin:4px 0 14px} .panel button{width:100%;padding:14px;border:0;border-bottom:1px solid #eee;background:#fff;text-align:left;font-weight:700}
+.note{background:#fff8df;border-radius:14px;padding:12px;font-size:14px;line-height:1.5;margin:12px 0}
+.badge{display:inline-block;background:#f2f0e8;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:900}
+@media (max-height:740px){.question{font-size:21px;min-height:80px}.choice{min-height:49px;font-size:16px}.explain{height:112px}.quiz{grid-template-rows:auto minmax(90px,auto) auto 112px auto}}
+</style>
+</head>
+<body>
+<div class="shell" id="app"></div>
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeMenu()"><div class="panel" id="panel"></div></div>
+<script>
+const COURSES={"lv1": {"title": "LV1 比喩・心情語彙", "subtitle": "意味を反射で答える", "trophy": "🥉", "message": "比喩の土台クリア！", "questions": [["胸をなで下ろす", "安心する", "がっかりする", "緊張する", "怒りを抑える", "心配事が無事に終わり、ほっとすること。"], ["心に穴があく", "大きな喪失感や寂しさを感じる", "頭が混乱する", "強く怒る", "やる気が出る", "大切なものを失ったような、強い寂しさを表す。"], ["肩の荷が下りる", "責任や心配から解放される", "疲れ切る", "自信をなくす", "腹を立てる", "重い責任や心配から解放され、ほっとすること。"], ["頭が真っ白になる", "驚きや緊張で考えられなくなる", "何も知らない", "眠くなる", "怒りが消える", "強い驚きや緊張で、考えがまとまらなくなること。"], ["目の前が真っ暗になる", "絶望して先が見えなくなる", "部屋が暗くなる", "眠くなる", "怒りで我を忘れる", "希望を失い、どうしてよいか分からなくなること。"], ["心が晴れる", "悩みが消えてすっきりする", "うれしくて騒ぐ", "忘れ物を思い出す", "緊張する", "心配やもやもやが消え、気分がすっきりすること。"], ["心が曇る", "不安や心配で気分が沈む", "怒りが爆発する", "恥ずかしくなる", "眠くなる", "心配や悲しさなどで、気持ちが重くなること。"], ["胸が高鳴る", "期待や緊張でどきどきする", "胸が痛む", "眠気が強くなる", "腹が立つ", "期待や緊張で鼓動が速く感じられること。"], ["心が弾む", "楽しみでわくわくする", "悲しみで泣く", "迷って決められない", "怒りをこらえる", "楽しみや期待で気分が明るくなること。"], ["胸が痛む", "悲しみやつらさを感じる", "体力が増える", "安心する", "うれしくなる", "人の苦しみや自分のつらさを思い、心が苦しくなること。"], ["胸につかえる", "気がかりが残ってすっきりしない", "食べ物がのどにつまるだけ", "嬉しさがこみ上げる", "眠れなくなる", "言えないことや心配が残り、気持ちがすっきりしないこと。"], ["心に刺さる", "言葉などが強く心に残る", "本当に傷を負う", "すぐ忘れる", "緊張がなくなる", "言葉や出来事が強い印象や痛みとして心に残ること。"], ["心が揺れる", "気持ちが迷い動く", "地震を怖がる", "怒りで震える", "眠くなる", "どちらにするか迷うなど、気持ちが定まらないこと。"], ["心を閉ざす", "他人と関わろうとしなくなる", "秘密を全部話す", "すぐ友達になる", "気持ちを切り替える", "傷ついたり警戒したりして、人に本心を見せなくなること。"], ["壁を作る", "人と心理的な距離を置く", "本当に壁を建てる", "仲良くなる", "問題を解決する", "人を受け入れず、関係に距離を置くこと。"], ["距離が縮まる", "人との関係が親しくなる", "近くへ引っ越す", "けんかする", "忘れ合う", "人間関係が以前より親しくなること。"], ["糸が切れる", "緊張や気力が突然途切れる", "裁縫に失敗する", "怒り出す", "急に元気になる", "張りつめていた緊張や努力する気力が途切れること。"], ["光が見える", "希望や解決の見込みが出る", "視力が良くなる", "朝になる", "秘密がばれる", "苦しい状況の中で、希望や解決の可能性が見えてくること。"], ["暗い影を落とす", "悪い影響や不安を残す", "日陰を作る", "夜になる", "姿を隠す", "出来事が、その後の気持ちや状況に重い影響を与えること。"], ["火がつく", "意欲や感情が強くなる", "実際に燃えるだけ", "眠くなる", "記憶を失う", "やる気や競争心などが急に強くなること。"]]}, "lv2": {"title": "LV2 短文で読む", "subtitle": "比喩を文脈の中で判定", "trophy": "🥈", "message": "文脈で比喩を読めるようになってきた！", "questions": [["発表が終わった瞬間、彼は大きく息を吐き、肩の荷が下りたように笑った。", "責任や緊張から解放された", "怒りが強くなった", "失敗を後悔した", "眠くなった", "『肩の荷が下りる』は、責任や心配から解放されること。"], ["合否の封筒を開くまで、胸のつかえが取れなかった。", "結果への不安が残っていた", "胸をけがしていた", "怒り続けていた", "食事ができなかった", "『胸のつかえ』は、心配や気がかりが残る状態。"], ["先生の一言で、暗かった表情に光が差した。", "希望を感じ始めた", "まぶしくて困った", "怒りが増した", "眠くなった", "『光が差す』は、希望や明るい見通しが生まれること。"], ["友人の何気ない言葉が、ずっと心に刺さっていた。", "その言葉が強く残り傷ついていた", "意味が分からなかった", "笑い続けた", "すぐ忘れた", "『心に刺さる』は、言葉が強い印象や痛みとして残ること。"], ["教室に入った瞬間、重い空気を感じた。", "緊張や気まずさが漂っていた", "空気が暑かった", "人が多かった", "換気が悪かった", "『重い空気』は、場の緊張・不安・気まずさを表す。"], ["彼女は『平気』と言ったが、声はかすれていた。", "本当はつらい可能性がある", "とても元気だった", "怒鳴っていた", "眠かっただけ", "言葉だけでなく声の様子も手がかりになる。"], ["久しぶりに会った二人の距離は、少しずつ縮まっていった。", "関係が親しくなっていった", "物理的に近づいた", "競争が激しくなった", "会話が減った", "ここでの『距離』は人間関係の隔たり。"], ["失敗を聞いた瞬間、目の前が真っ暗になった。", "絶望して先が考えられなくなった", "停電した", "眠った", "目を閉じた", "『目の前が真っ暗』は、強い絶望や動揺を表す。"], ["知らせを聞くと、母の顔がほころんだ。", "うれしくて笑顔になった", "怒って顔が赤くなった", "眠そうになった", "驚いて固まった", "『顔がほころぶ』は、喜びが自然な笑顔に表れること。"], ["彼は何か言いかけたが、その言葉を飲み込んだ。", "言うのをやめてこらえた", "水を飲んだ", "話を忘れた", "大声で言った", "『言葉を飲み込む』は、言おうとしたことを口に出さないこと。"]]}, "lv3": {"title": "LV3 心情を追う", "subtitle": "行動・表情・声から読む", "trophy": "🏆", "message": "心情の手がかりが見えてきた！", "questions": [["『大丈夫』と笑った。しかし、彼は最後まで母の目を見なかった。", "不安やつらさを隠している可能性", "心から安心している", "母を忘れている", "眠いだけ", "笑顔だけで決めず、『目を見ない』という描写も合わせて読む。"], ["名前を呼ばれた瞬間、彼女の手が止まった。", "動揺・緊張などが起きた可能性", "必ず怒った", "必ず喜んだ", "意味はまったくない", "動作の変化は心情変化のサインになりやすい。"], ["友人の成功を聞き、『よかったね』と言ったあと、彼は窓の外を見た。", "祝福しつつ複雑な気持ちがある可能性", "必ず嫉妬している", "心から何も感じていない", "外の景色が好きなだけと断定できる", "発言と直後の行動がずれる時、本音と建前を疑う。"], ["彼女は笑っていたが、指先は震えていた。", "緊張や不安を隠している可能性", "完全に安心している", "必ず寒い", "楽しさだけを表す", "表情と身体反応が食い違う時は、複数の感情を考える。"], ["『別に』と答えた声だけが、少し強かった。", "本当は気にしている可能性", "本当にどうでもいい", "眠い", "うれしい", "言葉の内容と声の強さのずれを読む。"], ["彼はドアの前で何度も手を伸ばしては引っ込めた。", "入ることをためらっている", "ドアが壊れている", "運動している", "眠い", "繰り返す動作は、迷いやためらいの表現になりやすい。"], ["別れ際、彼女はいつもより長く手を振った。", "別れを惜しむ気持ちがある可能性", "早く帰ってほしい", "怒っている", "意味はない", "『いつもより』という変化が心情の手がかり。"], ["謝罪を聞いた彼は、しばらく黙ってから『もういいよ』と言った。", "すぐには気持ちを整理できなかった可能性", "何も感じていない", "最初から許すつもりだったと断定できる", "眠かった", "沈黙の時間は、迷い・葛藤・整理の過程を示すことがある。"], ["合格を聞いても、彼女はすぐには笑わなかった。", "驚きで実感できていない可能性", "不合格だと思っている", "うれしくないと断定できる", "聞こえなかった", "うれしい出来事でも、反応が遅れることはある。"], ["父は返事をせず、新聞をたたんだ。", "何かを意識し、会話に向き合おうとした可能性", "必ず怒っている", "話を聞いていない", "眠った", "『返事をしない＋新聞をたたむ』という行動の組み合わせを見る。"]]}, "lv4": {"title": "LV4 象徴・含意", "subtitle": "情景や物の変化を読む", "trophy": "🏆✨", "message": "書かれていない意味まで読めてきた！", "questions": [["いつも大きく描いていた丸が、日に日に小さくなっていった。", "元気や希望が弱まっていることの象徴かもしれない", "丸を書く技術が上がった", "紙が足りないだけと断定できる", "必ず怒っている", "物の変化が人物の状態と対応していないか考える。"], ["帰り道、昨日まで気にならなかった街灯がやけに明るく見えた。", "気持ちの変化により景色の見え方が変わった可能性", "街灯が急に強くなったと断定できる", "視力が上がった", "眠くなった", "情景描写は人物の心理を映すことがある。"], ["部屋に置かれた空の椅子を、彼は何度も見た。", "不在の人物を意識している可能性", "椅子を買いたい", "座りたいだけ", "掃除したい", "物が人物や記憶の象徴になることがある。"], ["雨はやんだのに、彼女は傘を閉じなかった。", "気持ちの整理がつかず、行動が止まっている可能性", "雨が見えていない", "傘が壊れていると断定できる", "急いでいる", "不自然な行動には心理的な意味が隠れることがある。"], ["最後の一枚の写真だけ、机の引き出しにしまわれていた。", "その写真に特別な思いがある可能性", "写真が嫌い", "机が狭い", "忘れていた", "『なぜそれだけ別扱いか』を考えると含意が見える。"], ["春になっても、その家のカーテンは閉じたままだった。", "家の中の停滞や閉鎖的な状態を象徴する可能性", "必ず留守", "暑いから", "掃除中", "季節の変化と対照させて、変わらないものの意味を考える。"], ["彼が去ったあと、時計の音だけが大きく聞こえた。", "静けさや孤独が強く意識されている", "時計が壊れた", "耳が良くなった", "部屋が狭い", "音の強調は、孤独や緊張を印象づけることがある。"], ["昔はまっすぐだった庭の道に、草が伸びていた。", "時間の経過や人との関係の変化を象徴する可能性", "庭仕事が嫌い", "必ず貧しい", "雨が多いだけ", "荒れた場所が、失われた時間や関係を表すことがある。"], ["彼女は破れた手紙を捨てずにしまった。", "まだ気持ちを断ち切れていない可能性", "紙が貴重だから", "掃除が苦手", "内容を忘れた", "捨てられない行為に執着・未練が表れることがある。"], ["駅のホームで、発車後も彼は線路の先を見続けた。", "別れを受け入れきれず名残惜しい可能性", "電車が好き", "次の電車を待っているだけと断定できる", "眠い", "出来事が終わった後も続く行動は、残る感情を示すことがある。"]]}, "lv5": {"title": "LV5 難関読解", "subtitle": "本音・ずれ・複数の意味", "trophy": "👑🏆", "message": "このまま慶應合格に向かって頑張ろう！", "questions": [["友人の謝罪に『気にしてないよ』と答えたが、その後しばらく以前のようには話さなかった。", "言葉では許していても感情は完全には戻っていない可能性", "完全に許した", "絶対に許していない", "友人を忘れた", "言葉とその後の行動を照らし合わせて読む。"], ["彼は賞を受け取ると『運がよかっただけです』と言った。帰宅後、賞状を何度も見返した。", "表では謙遜しつつ内心では喜びや誇りを感じている可能性", "本当に価値を感じていない", "賞を嫌っている", "忘れたい", "公の発言と私的な行動の差から複雑な心情を読む。"], ["母は『好きにしなさい』と言ったが、食卓ではほとんど話さなかった。", "承諾していても不満や心配が残る可能性", "全面的に賛成している", "何も考えていない", "眠い", "台詞の表面だけでなく、後の態度も見る。"], ["彼女は昔の町を『何も変わってない』と言った直後、『でも小さく見えるね』と笑った。", "町ではなく自分自身の変化も感じている可能性", "町が縮んだ", "記憶が消えた", "怒っている", "同じ場所でも成長や時間で見え方が変わる、という含意がある。"], ["祖父の時計は止まっていたが、家族は誰も直そうとしなかった。", "時計が祖父の記憶をとどめる象徴になっている可能性", "全員時計が嫌い", "修理代が高いだけ", "時間を知る必要がない", "壊れた物が思い出の象徴として保存されることがある。"], ["彼は勝ったのに、相手の背中を見て笑うのをやめた。", "勝利の喜びだけでなく相手への思いや複雑さが生じた可能性", "勝ったことを忘れた", "負けたと思った", "疲れただけ", "感情は一つとは限らない。出来事の後の変化に注目する。"], ["彼女は手紙を最後まで読まずに閉じた。しかし捨てなかった。", "読むのがつらい一方、手放せない気持ちもある可能性", "興味がない", "内容を理解できない", "紙が必要", "相反する行動から葛藤を読む。"], ["父は息子の失敗を責めず、『次はどうする』とだけ聞いた。", "過去より今後の行動を考えさせようとしている可能性", "失敗に無関心", "怒っていないから何も考えていない", "忘れた", "何を言わなかったかも人物像を読む材料になる。"], ["別れの場面で彼女は泣かず、家に帰ってから相手の忘れ物を見て泣いた。", "別れの実感が後から生まれた可能性", "忘れ物が嫌い", "外では悲しくなかった", "急に体調が悪くなった", "感情は出来事と同時に表れるとは限らない。"], ["『また来るよ』と言った彼に、老人は『そうか』とだけ答えた。その声は明るかった。", "再会への期待を表に出しすぎず受け止めている可能性", "来てほしくない", "聞こえていない", "怒っている", "短い返答でも声の調子が心情の手がかりになる。"]]}, "showa": {"title": "EX 昭和・戦時中", "subtitle": "昔の生活を頭に浮かべる語彙", "trophy": "📻🏆", "message": "昭和・戦時中の背景知識クリア！", "questions": [["縁側（えんがわ）", "部屋と庭の間にある細長い板張りの場所", "家の外にある物置", "玄関の靴を置く場所", "屋根の上の通路", "和風の家で、部屋の外側に沿ってつくられた板張りの場所。庭に面していることが多い。"], ["配給", "必要な物資を決められた量だけ受け取るしくみ", "好きな商品を安く買うセール", "軍隊に入る人を選ぶこと", "学校給食", "物不足のときに食料や日用品などを一定量ずつ分けるしくみ。"], ["防空壕（ぼうくうごう）", "空襲などから身を守る避難場所", "食料庫", "列車の待合室", "農具小屋", "空襲の爆弾や火災などから身を守るための避難場所。"], ["疎開（そかい）", "空襲を避けて都市から地方へ移ること", "軍隊に入ること", "食料を配ること", "地下に隠れること", "戦時中、子どもなどが危険な都市部を離れて地方へ移ること。"], ["空襲（くうしゅう）", "航空機などによる空からの攻撃", "地震による火災", "海上輸送", "避難訓練", "戦争中、航空機などが都市や施設を攻撃すること。"], ["焼夷弾（しょういだん）", "火災を起こすことを目的とした爆弾", "配給の箱", "警報器", "地下道を掘る道具", "建物などを燃やすことを主目的とした爆弾。"], ["学徒動員", "学生が工場などで働かされたこと", "学生旅行", "兵士への授業", "配給受け取り", "戦時中、学生が学校を離れて工場などで労働に従事させられたこと。"], ["赤紙", "兵役を命じる召集令状の通称", "配給券", "通知表", "防空訓練の案内", "兵役のために召集することを知らせる令状の通称。"], ["闇市（やみいち）", "非公式に物を売買した市場", "夜の学校", "軍の訓練所", "地下避難所", "終戦直後などの物不足の時代に、正式な流通とは別に品物が売買された市場。"], ["買い出し", "食料などを求めて遠くまで買いに行くこと", "家を建てること", "配給を断ること", "迎えに行くこと", "物不足の時代、都市の人が農村などへ食料を求めに行くことがあった。"], ["黒電話", "家に置いて使う固定電話", "携帯電話", "文字だけ送る道具", "写真機", "家庭などに置かれた固定電話。多くは家族で共用した。"], ["ちゃぶ台", "床に座って使う低い食卓", "布団箱", "電話台", "湯沸かし器", "畳の部屋などで使う脚の低い食卓。"], ["火鉢（ひばち）", "炭火で暖をとる道具", "水桶", "洗濯道具", "冷蔵箱", "鉢の中に炭を入れ、暖をとったり湯を沸かしたりする道具。"], ["かまど", "火をたいてご飯などを炊く設備", "門", "昔の風呂", "押し入れ", "薪などを燃やして、釜や鍋で食事を作る設備。"], ["銭湯（せんとう）", "料金を払って入る共同の浴場", "食料品店", "駅の待合室", "学校の給食室", "家庭に風呂がない時代などに利用された共同浴場。"], ["七輪（しちりん）", "炭を入れて調理する小さな炉", "洗濯板", "扇風機", "食料棚", "炭を燃やし、焼き物や煮炊きに使う小さな炉。"], ["洗濯板", "衣類をこすって洗うための板", "食器棚", "布団板", "床板", "洗濯機が一般化する前、衣類をこすり洗いするために使った板。"], ["もんぺ", "作業などに使われたゆったりしたズボン風の衣服", "避難壕の入口", "弁当箱", "学校机", "女性の作業着として広く使われ、戦時中の生活描写にも登場する。"], ["木造校舎", "木で造られた学校の建物", "地下学校", "戦時中だけの学校", "体育館", "昔の学校には木造の校舎が多かった。"], ["国民学校", "戦時中の日本で使われた小学校の名称", "軍人学校", "大学", "夜間学校", "1941年から戦後しばらくまで、小学校にあたる学校は国民学校と呼ばれた。"], ["復員（ふくいん）", "兵士が軍務を終えて帰郷すること", "再び兵士になること", "避難すること", "学校へ戻ること", "戦争が終わるなどして、兵士が軍隊を離れ故郷へ帰ること。"], ["焼け野原", "火災や空襲で建物が焼失した一帯", "田畑", "工場地帯", "雪原", "空襲などで建物が焼け、広く何も残っていない状態になった場所。"], ["紙芝居", "絵を一枚ずつ見せながら物語を語るもの", "紙の家", "昔の教科書", "新聞", "絵の描かれた紙を順に見せながら話を語る娯楽・読み聞かせ。"], ["井戸", "地下水をくみ上げるための穴や設備", "物置", "風呂", "便所", "水道が広く普及する前、生活用水を得るためによく使われた。"], ["障子（しょうじ）", "木枠に紙を張った建具", "屋根瓦", "食器", "布団", "和室で部屋を仕切ったり、外光を柔らかく取り入れたりする建具。"], ["襖（ふすま）", "和室を仕切る引き戸", "床板", "庭の門", "机", "和室どうしの間などを仕切る、紙や布を張った引き戸。"], ["押し入れ", "布団などを収納する和室の収納", "玄関", "庭", "台所", "和室にある収納スペース。布団などをしまうことが多い。"], ["茶の間", "家族が集まり食事や団らんをする部屋", "茶店", "学校教室", "玄関", "昔の家で、家族が食事や団らんをする中心的な部屋。"], ["奉公（ほうこう）", "他家や店などに住み込むなどして働くこと", "旅行", "軍務", "通学", "昔、店や家などで住み込みを含む形で働くこと。"], ["ラジオ", "音声放送を受信する機械", "写真機", "洗濯道具", "食器", "テレビ普及前には、ニュースや娯楽を家庭で聞く主要な道具だった。"]]}, "kobun": {"title": "EX 古文単語", "subtitle": "高校受験で効く古語を暗記", "trophy": "📜🏆", "message": "古文単語の土台クリア！", "questions": [["いと", "とても", "少し", "すぐに", "なぜ", "『いと』は『とても・たいそう』。"], ["をかし", "趣がある・すばらしい", "おかしい", "悲しい", "腹立たしい", "現代語の『おかしい』とは違い、趣深い・すばらしいの意味で使われる。"], ["あはれ", "しみじみと心を動かされる", "危険だ", "退屈だ", "うるさい", "『あはれ』は、感動・しみじみした情趣を表す。"], ["うつくし", "かわいらしい", "美人だ", "汚れている", "大人びている", "古文の『うつくし』は『かわいらしい・いとしい』が基本。"], ["ありがたし", "めったにない・珍しい", "感謝している", "簡単だ", "困っている", "古文では『めったにない』が中心。そこから『尊い』にもつながる。"], ["おどろく", "目を覚ます・気づく", "びっくりするだけ", "怒る", "逃げる", "古文では『目を覚ます』『気づく』の意味が重要。"], ["ののしる", "大声で騒ぐ・評判になる", "悪口を言うだけ", "静かにする", "泣く", "古文では『大声で騒ぐ』『世間で評判になる』の意味がある。"], ["ゆかし", "見たい・知りたい", "恥ずかしい", "行きたくない", "眠い", "『ゆかし』は、見たい・聞きたい・知りたいという好奇心。"], ["つれづれ", "することがなく退屈", "忙しい", "悲しい", "怒っている", "『つれづれ』は、手持ち無沙汰で退屈な状態。"], ["めでたし", "すばらしい・立派だ", "おめでたい", "悲しい", "簡単だ", "古文では『立派だ・すばらしい』の意味。"], ["やうやう", "だんだん・ようやく", "突然", "いつも", "まったく", "『やうやう』は『だんだん』『ようやく』。"], ["さうざうし", "物足りない・さびしい", "騒がしい", "うれしい", "恐ろしい", "『さうざうし』は、何か足りず物足りない感じ。"], ["こころにくし", "奥ゆかしい・期待される", "嫌いだ", "不親切だ", "恐ろしい", "『こころにくし』は、奥ゆかしい・どこか期待される感じ。"], ["なつかし", "親しみを感じる", "昔を思い出すだけ", "暑い", "眠い", "古文では『心ひかれる・親しみやすい』の意味が中心。"], ["あやし", "不思議だ・身分が低い", "怪しい人だ", "立派だ", "うれしい", "文脈により『不思議だ』『身分が低い・粗末だ』など。"], ["いみじ", "とても・すばらしい／ひどい", "意味がある", "静かだ", "若い", "程度がはなはだしいこと。良い意味にも悪い意味にも使う。"], ["わびし", "つらい・心細い", "楽しい", "派手だ", "眠い", "『わびし』は、つらい・心細い・やるせない。"], ["くちをし", "残念だ・くやしい", "口が痛い", "おいしい", "無口だ", "『くちをし』は、期待外れで残念・くやしい気持ち。"], ["あさまし", "驚きあきれるほどだ", "朝が早い", "眠い", "優しい", "良くも悪くも、驚きあきれるほどであること。"], ["ねんごろなり", "心をこめて丁寧だ・親しい", "眠い", "騒がしい", "冷たい", "『ねんごろなり』は、心がこもっている・親密である。"]]}};
+const KEYS=["lv1","lv2","lv3","lv4","lv5","showa","kobun"];
+const MAIN=["lv1","lv2","lv3","lv4","lv5"];
+const letters=["A","B","C","D"];
+const getState=()=>JSON.parse(localStorage.getItem("kokugoQuestState")||'{"logs":[],"completed":{},"sets":{}}');
+const save=s=>localStorage.setItem("kokugoQuestState",JSON.stringify(s));
+let state=getState(); let session=null;
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function today(){return new Date().toISOString().slice(0,10)}
+function isUnlocked(k){
+  if(k==="lv1"||k==="showa"||k==="kobun") return true;
+  const i=MAIN.indexOf(k); return i>0 && state.completed[MAIN[i-1]];
+}
+function countToday(){return state.logs.filter(x=>x.date===today()).length}
+function accuracy(){if(!state.logs.length)return 0; return Math.round(state.logs.filter(x=>x.ok).length/state.logs.length*100)}
+function trophies(){return Object.keys(state.completed).length}
+function home(){
+  const items=KEYS.map(k=>{
+    const c=COURSES[k], open=isUnlocked(k), done=state.completed[k];
+    return `<div class="course ${open?"":"locked"}">
+      <div><span class="badge">${k.startsWith("lv")?"MAIN":"EX"}</span>
+      <h3>${done?c.trophy+" ":""}${c.title}</h3><p>${c.subtitle}</p></div>
+      <button class="go" ${open?"":"disabled"} onclick="${open?`startSet('${k}')`:""}">${done?"もう1セット":open?"10問スタート":"🔒"}</button>
+    </div>`
+  }).join("");
+  document.getElementById("app").innerHTML=`
+  <div class="top"><div class="brand">国語クエスト</div><button class="menuBtn" onclick="openMenu()">☰</button></div>
+  <div class="homeTitle">今日も10問いこう 📚</div>
+  <div class="sub">1セット10問。やる気がある日は何セットでもOK。</div>
+  <div class="stats"><div class="stat"><b>${countToday()}</b>今日の回答</div><div class="stat"><b>${accuracy()}%</b>総正答率</div><div class="stat"><b>${trophies()}</b>トロフィー</div></div>
+  ${items}`;
+}
+function startSet(key, onlyWrong=false){
+  const q=COURSES[key].questions.map((x,i)=>({x,i}));
+  let pool=q;
+  if(onlyWrong){
+    const ids=[...new Set(state.logs.filter(l=>l.course===key&&!l.ok).map(l=>l.qid))];
+    pool=q.filter(o=>ids.includes(o.i));
+    if(!pool.length){alert("復習する間違い問題はありません");return}
+  }
+  shuffle(pool);
+  const chosen=pool.slice(0,Math.min(10,pool.length));
+  session={key,items:chosen,pos:0,score:0,wrong:[],answered:false,setNo:(state.sets[key]||0)+1};
+  renderQ();
+}
+function renderQ(){
+  const c=COURSES[session.key], obj=session.items[session.pos], x=obj.x;
+  const opts=x.slice(1,5).map((t,i)=>({t,correct:i===0})); shuffle(opts);
+  session.currentOpts=opts; session.answered=false;
+  document.getElementById("app").innerHTML=`
+  <div class="quiz">
+    <div class="top"><div><span class="badge">${c.title}</span> <span class="progress">${session.pos+1}/${session.items.length}</span></div><button class="menuBtn" onclick="openMenu()">☰</button></div>
+    <div class="question">${x[0]}</div>
+    <div class="choices">${opts.map((o,i)=>`<button class="choice" onclick="answer(${i})"><span class="letter">${letters[i]}</span><span>${o.t}</span></button>`).join("")}</div>
+    <div class="explain" id="explain"><div class="small">答えをタップすると、正解でも解説が表示されます。</div></div>
+    <button class="next" id="next" disabled onclick="nextQ()">${session.pos===session.items.length-1?"結果を見る":"次へ"}</button>
+  </div>`;
+}
+function answer(i){
+  if(session.answered)return; session.answered=true;
+  const obj=session.items[session.pos], x=obj.x, opts=session.currentOpts, ok=opts[i].correct;
+  const btn=[...document.querySelectorAll(".choice")];
+  btn.forEach((b,j)=>{b.disabled=true;if(opts[j].correct)b.classList.add("correct")});
+  if(!ok)btn[i].classList.add("wrong"); else session.score++;
+  if(!ok)session.wrong.push(obj);
+  state.logs.push({date:today(),ts:Date.now(),course:session.key,qid:obj.i,ok});
+  save(state);
+  document.getElementById("explain").innerHTML=`<div class="result">${ok?"✅ 正解":"❌ ちがうよ"}</div><div>${x[5]}</div>`;
+  document.getElementById("next").disabled=false;
+}
+function nextQ(){
+  if(session.pos<session.items.length-1){session.pos++;renderQ()} else finish();
+}
+function finish(){
+  state.sets[session.key]=(state.sets[session.key]||0)+1;
+  const fullCourseDone = COURSES[session.key].questions.every((q,idx)=>state.logs.some(l=>l.course===session.key&&l.qid===idx&&l.ok));
+  if(fullCourseDone) state.completed[session.key]=true;
+  save(state);
+  const c=COURSES[session.key], wrongUnique=[...new Map(session.wrong.map(o=>[o.i,o])).values()];
+  document.getElementById("app").innerHTML=`
+  <div class="top"><div class="brand">${c.title}</div><button class="menuBtn" onclick="openMenu()">☰</button></div>
+  <div class="center">
+    <div class="bigTrophy">${fullCourseDone?c.trophy:"🎯"}</div>
+    <div class="score">${session.score} / ${session.items.length}</div>
+    <div class="sub">${fullCourseDone?c.message:"1セット終了！"}</div>
+    ${wrongUnique.length?`<div class="note">間違い ${wrongUnique.length}問。ここだけすぐ復習できます。</div>`:""}
+    <div class="actionGrid">
+      ${wrongUnique.length?`<button class="next" onclick="retryWrong()">間違いだけ復習</button>`:""}
+      <button class="next" onclick="startSet('${session.key}')">もう1セット（10問）</button>
+      <button class="next secondary" onclick="home()">コース一覧へ</button>
+    </div>
+  </div>`;
+}
+function retryWrong(){
+  const uniq=[...new Map(session.wrong.map(o=>[o.i,o])).values()];
+  if(!uniq.length)return;
+  shuffle(uniq);
+  session={...session,items:uniq,pos:0,score:0,wrong:[]};
+  renderQ();
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="kokugo-quest-learning-record.json"; a.click(); URL.revokeObjectURL(a.href);
+}
+function resetData(){
+  if(confirm("学習記録をすべて消しますか？")){localStorage.removeItem("kokugoQuestState");state=getState();closeMenu();home()}
+}
+function openMenu(){
+  document.getElementById("panel").innerHTML=`
+    <h3>メニュー</h3>
+    <button onclick="closeMenu();home()">🏠 コース一覧</button>
+    <button onclick="exportData()">📤 学習記録を書き出す</button>
+    <button onclick="alert('このJSONをお母さんのChatGPTに送れば、弱点や定着度を分析できます')">📊 記録の分析について</button>
+    <button onclick="resetData()">🗑 学習記録をリセット</button>
+    <button onclick="closeMenu()">閉じる</button>`;
+  document.getElementById("sheet").classList.add("open");
+}
+function closeMenu(){document.getElementById("sheet").classList.remove("open")}
+home();
+</script>
+</body>
+</html>
