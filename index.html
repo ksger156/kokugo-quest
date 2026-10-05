@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#ffffff">
 <title>国語クエスト</title>
+<!-- v2: backup/restore + safety backup -->
 <style>
 :root{--bg:#f4f4f2;--card:#fff;--text:#171717;--muted:#707070;--line:#dedede;--good:#eaf7ef;--bad:#fff0f0;--accent:#171717}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -50,8 +51,30 @@ const COURSES={"lv1": {"title": "LV1 比喩・心情語彙", "subtitle": "意味
 const KEYS=["lv1","lv2","lv3","lv4","lv5","showa","kobun"];
 const MAIN=["lv1","lv2","lv3","lv4","lv5"];
 const letters=["A","B","C","D"];
-const getState=()=>JSON.parse(localStorage.getItem("kokugoQuestState")||'{"logs":[],"completed":{},"sets":{}}');
-const save=s=>localStorage.setItem("kokugoQuestState",JSON.stringify(s));
+const STATE_KEY="kokugoQuestState";
+const SAFETY_KEY="kokugoQuestState_safetyBackup";
+const EMPTY_STATE=()=>({logs:[],completed:{},sets:{}});
+function getState(){
+  const primary=localStorage.getItem(STATE_KEY);
+  if(primary){
+    try{return JSON.parse(primary)}catch(e){}
+  }
+  const safety=localStorage.getItem(SAFETY_KEY);
+  if(safety){
+    try{
+      const recovered=JSON.parse(safety);
+      localStorage.setItem(STATE_KEY,JSON.stringify(recovered));
+      return recovered;
+    }catch(e){}
+  }
+  return EMPTY_STATE();
+}
+function save(s){
+  const data=JSON.stringify(s);
+  // Same URL + same key means an index.html update does NOT erase progress.
+  localStorage.setItem(STATE_KEY,data);
+  localStorage.setItem(SAFETY_KEY,data);
+}
 let state=getState(); let session=null;
 
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
@@ -114,7 +137,7 @@ function answer(i){
   if(!ok)session.wrong.push(obj);
   state.logs.push({date:today(),ts:Date.now(),course:session.key,qid:obj.i,ok});
   save(state);
-  document.getElementById("explain").innerHTML=`<div class="result">${ok?"✅ 正解":"❌ ちがうよ"}</div><div>${x[5]}</div>`;
+  document.getElementById("explain").innerHTML=`<div class="result">${ok?"✅ 正解":"❌ ちがうよ〜"}</div><div>${x[5]}</div>`;
   document.getElementById("next").disabled=false;
 }
 function nextQ(){
@@ -147,19 +170,68 @@ function retryWrong(){
   session={...session,items:uniq,pos:0,score:0,wrong:[]};
   renderQ();
 }
+function makeBackupText(){
+  return JSON.stringify({
+    app:"kokugo-quest",
+    version:2,
+    exportedAt:new Date().toISOString(),
+    state:state
+  });
+}
+async function copyBackup(){
+  const data=makeBackupText();
+  try{
+    await navigator.clipboard.writeText(data);
+    alert("バックアップをコピーしたよ！\\nSafariなど別のブラウザで「バックアップから復元」を押して貼り付けてね。");
+  }catch(e){
+    // Clipboard permission can be restricted in some in-app browsers.
+    window.prompt("この文字列をすべてコピーしてね",data);
+  }
+}
+function restoreBackup(){
+  const pasted=window.prompt("コピーしたバックアップを貼り付けてね");
+  if(!pasted)return;
+  try{
+    const parsed=JSON.parse(pasted.trim());
+    const restored=(parsed && parsed.app==="kokugo-quest" && parsed.state) ? parsed.state : parsed;
+    if(!restored || !Array.isArray(restored.logs) || typeof restored.completed!=="object" || typeof restored.sets!=="object"){
+      throw new Error("invalid");
+    }
+    if(!confirm("このバックアップの学習記録に復元しますか？\\n今このブラウザにある記録は上書きされます。"))return;
+    state=restored;
+    save(state);
+    closeMenu();
+    home();
+    alert("復元できたよ！📚");
+  }catch(e){
+    alert("バックアップを読み込めなかったよ。コピーした文字列が途中で切れていないか確認してね。");
+  }
+}
 function exportData(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="kokugo-quest-learning-record.json"; a.click(); URL.revokeObjectURL(a.href);
+  const blob=new Blob([makeBackupText()],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="kokugo-quest-backup.json";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function resetData(){
-  if(confirm("学習記録をすべて消しますか？")){localStorage.removeItem("kokugoQuestState");state=getState();closeMenu();home()}
+  if(confirm("学習記録をすべて消しますか？\\nこの操作は元に戻せません。先にバックアップがおすすめです。")){
+    localStorage.removeItem(STATE_KEY);
+    localStorage.removeItem(SAFETY_KEY);
+    state=getState();
+    closeMenu();
+    home();
+  }
 }
 function openMenu(){
   document.getElementById("panel").innerHTML=`
     <h3>メニュー</h3>
     <button onclick="closeMenu();home()">🏠 コース一覧</button>
-    <button onclick="exportData()">📤 学習記録を書き出す</button>
-    <button onclick="alert('このJSONをお母さんのChatGPTに送れば、弱点や定着度を分析できます')">📊 記録の分析について</button>
+    <button onclick="copyBackup()">📋 バックアップをコピー</button>
+    <button onclick="restoreBackup()">📥 バックアップから復元</button>
+    <button onclick="exportData()">💾 JSONでバックアップ保存</button>
+    <button onclick="alert('JSONをお母さんのChatGPTに送れば、正答率・苦手分野・復習状況などを分析できます')">📊 学習記録の分析について</button>
     <button onclick="resetData()">🗑 学習記録をリセット</button>
     <button onclick="closeMenu()">閉じる</button>`;
   document.getElementById("sheet").classList.add("open");
